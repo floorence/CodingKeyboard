@@ -11,6 +11,17 @@ class KeyboardViewController: UIInputViewController {
 
     @IBOutlet var nextKeyboardButton: UIButton!
     
+    enum ShiftState {
+        case none
+        case shift
+        case caps
+    }
+    
+    var rows: [UIStackView] = []
+    
+    var shiftState: ShiftState = .none
+    var keysPage: Int = 1
+    
     override func updateViewConstraints() {
         super.updateViewConstraints()
         
@@ -38,55 +49,58 @@ class KeyboardViewController: UIInputViewController {
         
         view.backgroundColor = .systemGray
         
-        let row = UIStackView()
-        row.axis = .horizontal
-        row.distribution = .fillEqually
-        row.spacing = 6
-        
-        let row2 = UIStackView()
-        row2.axis = .horizontal
-        row2.distribution = .fillEqually
-        row2.spacing = 6
-        
-        let symbols = ["*","/","(",")","_","+","{","}",":","\""]
-        let symbols2 = ["0","1","<",">","-","=","[","]",";","'"]
-        
-        for symbol in symbols {
-            let button = createKey(title: symbol)
-            row.addArrangedSubview(button)
+        initRows()
+        drawKeys()
+    }
+    
+    func initRows() {
+        for i in 0...Constants.keysPage1.count - 1 {
+            let row = UIStackView()
+            row.axis = .horizontal
+            row.distribution = .fillEqually
+            row.spacing = 6
+            row.translatesAutoresizingMaskIntoConstraints = false
+            
+            rows.append(row)
+            view.addSubview(row)
+            
+            var topAnchor: NSLayoutYAxisAnchor
+            if (i == 0) {
+                topAnchor = view.topAnchor
+            } else {
+                topAnchor = rows[i - 1].bottomAnchor
+            }
+            
+            NSLayoutConstraint.activate([
+                row.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 5),
+                row.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -5),
+                row.topAnchor.constraint(equalTo: topAnchor, constant: 15),
+                row.heightAnchor.constraint(equalToConstant: 40)
+            ])
         }
-        
-        for symbol in symbols2 {
-            let button = createKey(title: symbol)
-            row2.addArrangedSubview(button)
+    }
+    
+    func drawKeys() {
+        for row in 0...Constants.keysPage1.count - 1 {
+            for view in rows[row].arrangedSubviews {
+                view.removeFromSuperview()
+            }
+            for col in 0...Constants.keysPage1[row].count - 1 {
+                let symbol = Constants.keysPage1[row][col]
+                let button = createKey(title: symbol)
+                rows[row].addArrangedSubview(button)
+            }
         }
-        
-        row.translatesAutoresizingMaskIntoConstraints = false
-        row2.translatesAutoresizingMaskIntoConstraints = false
-        view.addSubview(row)
-        view.addSubview(row2)
-        
-        NSLayoutConstraint.activate([
-            row.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 10),
-            row.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -10),
-            row.topAnchor.constraint(equalTo: view.topAnchor, constant: 20),
-            row.heightAnchor.constraint(equalToConstant: 50)
-        ])
-        
-        NSLayoutConstraint.activate([
-            row2.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 10),
-            row2.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -10),
-            row2.topAnchor.constraint(equalTo: row.bottomAnchor, constant: 20),
-            row2.heightAnchor.constraint(equalToConstant: 50)
-        ])
     }
     
     func createKey(title: String) -> UIButton {
         let button = UIButton(type: .system)
         button.setTitle(title, for: .normal)
         button.titleLabel?.font = .systemFont(ofSize: 22)
+        button.titleLabel?.textColor = .black
         
         button.backgroundColor = .white
+        button.layer.setValue(title, forKey: "key")
         button.layer.cornerRadius = 8
         button.layer.borderColor = UIColor.systemGray4.cgColor
         button.layer.shadowColor = UIColor.systemGray4.cgColor
@@ -97,8 +111,15 @@ class KeyboardViewController: UIInputViewController {
     }
     
     @objc func keyPressed(_ sender: UIButton) {
-        if let text = sender.title(for: .normal) {
-            textDocumentProxy.insertText(text)
+        guard let key = sender.layer.value(forKey: "key") as? String else {return}
+        
+        switch key {
+        case "⇧": shiftState = (shiftState == .none) ? .shift : .none
+        default:
+            if (shiftState == .shift) {
+                shiftState = .none
+            }
+            textDocumentProxy.insertText(key)
         }
     }
     
