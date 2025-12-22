@@ -1,0 +1,4 @@
+-fix keyboard height constraint conflict
+-key (and icon) changes colour while pressed
+-key drag down will input shifted key
+-add caps lock functionality
