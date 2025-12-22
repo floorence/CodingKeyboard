@@ -82,8 +82,9 @@ class KeyboardViewController: UIInputViewController {
         extraSpacing = (view.bounds.width - secondLastRowKeysWidth - secondLastRowWhiteSpaceWidth) / 2
         print(extraSpacing)
         
-        let lastRowKeysWidth = keyWidth * (needsInputModeSwitchKey ? 2 : 1) + Dimens.KEY_WIDE_WIDTH
-        let lastRowWhiteSpaceWidth = (Dimens.EDGE_MARGIN * 2) + (Dimens.KEYS_SPACING * 3)
+        let lastRowNumSquareKeys = CGFloat(needsInputModeSwitchKey ? 2 : 1)
+        let lastRowKeysWidth = Dimens.KEY_HEIGHT * lastRowNumSquareKeys + Dimens.KEY_WIDE_WIDTH
+        let lastRowWhiteSpaceWidth = (Dimens.EDGE_MARGIN * 2) + (Dimens.KEYS_SPACING * (lastRowNumSquareKeys + 1))
         spaceBarWidth = view.bounds.width - lastRowKeysWidth - lastRowWhiteSpaceWidth
         print(spaceBarWidth)
     }
@@ -125,6 +126,9 @@ class KeyboardViewController: UIInputViewController {
             for col in 0...Keys.KEYS_1[row].count - 1 {
                 let symbol = Keys.KEYS_1[row][col]
                 let button = createKey(title: symbol)
+                
+                if (!needsInputModeSwitchKey && symbol == "🌐") { continue }
+                    
                 rows[row].addArrangedSubview(button)
                 
                 if (col != Keys.KEYS_1[row].count - 1) {
@@ -142,18 +146,34 @@ class KeyboardViewController: UIInputViewController {
     func createKey(title: String) -> UIButton {
         let button = UIButton(type: .system)
         
-        let capsKey = title.capitalized
-        let displayKey = shiftState == .none ? title : capsKey
+        let capsKey = capitalizeKey(key: title)
+        let key = shiftState == .none ? title : capsKey
+        let displayKey = Keys.ICON_KEYS.contains(title) ? "" : key
         button.setTitle(displayKey, for: .normal)
-        button.layer.setValue(displayKey, forKey: "key")
+        button.layer.setValue(key, forKey: "key")
+        
+        let icon: UIImage?
+        if (title == "⇧") {
+            if (shiftState == .caps) {
+                icon = UIImage(systemName: "capslock")
+            } else {
+                icon = iconFor(key: title, filled: shiftState == .none ? false : true)
+            }
+        } else {
+            icon = iconFor(key: title)
+        }
+        
+        if (icon != nil) {
+            button.setImage(icon, for: .normal)
+        }
         
         button.titleLabel?.font = .systemFont(ofSize: Dimens.KEY_FONT_SIZE)
-        button.setTitleColor(UIColor.label, for: .normal)
+        button.tintColor = UIColor.label
         button.backgroundColor = UIColor.systemBackground
         button.layer.cornerRadius = Dimens.KEY_CORNER_RADIUS
         button.translatesAutoresizingMaskIntoConstraints = false
         
-        if (Keys.SQUARE_KEYS.contains(title)) {
+        if (Keys.ICON_KEYS.contains(title)) {
             button.widthAnchor.constraint(equalToConstant: Dimens.KEY_HEIGHT).isActive = true
         } else if (Keys.WIDE_KEYS.contains(title)) {
             button.widthAnchor.constraint(equalToConstant: Dimens.KEY_WIDE_WIDTH).isActive = true
@@ -167,6 +187,55 @@ class KeyboardViewController: UIInputViewController {
         return button
     }
     
+    func capitalizeKey(key: String) -> String {
+        if (key.count != 1) { return key }
+        guard let targetIndex = key.index(key.startIndex, offsetBy: 0, limitedBy: key.endIndex) else {
+            return key
+        }
+        let char = key[targetIndex]
+    
+        switch char {
+        case ",", ".", "/":
+            return String(character(char: char, offset: 16))
+        case "\\", "[", "]":
+            return String(character(char: char, offset: 32))
+        case "-": return "_"
+        case "=": return "+"
+        case ";": return ":"
+        case "\'": return "\""
+        case "1": return "!"
+        case "2": return "@"
+        case "3", "4", "5":
+            return String(character(char: char, offset: -16))
+        case "6": return "^"
+        case "7": return "&"
+        case "8": return "*"
+        case "9": return "("
+        case "0": return ")"
+        default: return key.capitalized
+        }
+    }
+    
+    func character(char: Character, offset: Int) -> Character {
+        guard let startValue = char.unicodeScalars.first?.value else {
+            fatalError("Character could not be converted to Int")
+        }
+        let endValue = Int(startValue) + offset
+        guard let unicodeScalar = UnicodeScalar(endValue) else {
+            fatalError("Final UnicodeScalar from given Character and offset could not be converted to Character")
+        }
+        return Character(unicodeScalar)
+    }
+    
+    func iconFor(key: String, filled: Bool = false) -> UIImage? {
+        switch key {
+        case "⇧": return UIImage(systemName: filled ? "shift.fill" : "shift")
+        case "⌫": return UIImage(systemName: filled ? "delete.left.fill" : "delete.left")
+        case "⇥": return UIImage(systemName: "arrow.right.to.line")
+        case "🌐": return UIImage(systemName: filled ? "globe.fill" : "globe")
+        default: return nil
+        }
+    }
    
     func removeAllSubViews(_ stackView: UIStackView) {
         for view in stackView.arrangedSubviews {
@@ -194,7 +263,7 @@ class KeyboardViewController: UIInputViewController {
         case "⌫":
             unShiftAndInvalidate()
             textDocumentProxy.deleteBackward()
-        case "→":
+        case "⇥":
             textDocumentProxy.insertText("\t")
         case "return":
             textDocumentProxy.insertText("\n")
